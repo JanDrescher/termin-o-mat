@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Termin-O-Mat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4ff;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* ── Login ─────────────────────────────────────── */
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 1rem;
+    }
+
+    #login-screen h1 { font-size: 2rem; color: #2563eb; }
+    #login-screen p  { color: #666; }
+
+    #login-screen input {
+      padding: 0.75rem 1rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      width: 280px;
+      text-align: center;
+    }
+    #login-screen input:focus { outline: none; border-color: #2563eb; }
+
+    #login-screen button {
+      padding: 0.75rem 2rem;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #login-screen button:hover { background: #1d4ed8; }
+
+    #login-error { color: #dc2626; font-size: 0.9rem; display: none; }
+
+    /* ── Main ──────────────────────────────────────── */
+    #main-screen {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+
+    #main-screen h1 { font-size: 1.8rem; color: #2563eb; margin-bottom: 1.5rem; }
+
+    .controls {
+      background: white;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .ctrl-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .ctrl-group label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .ctrl-group input {
+      padding: 0.55rem 0.8rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+    }
+    .ctrl-group input:focus { outline: none; border-color: #2563eb; }
+
+    button {
+      padding: 0.55rem 1.2rem;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    button:hover    { background: #1d4ed8; }
+    button:disabled { background: #b0b8cc; cursor: default; }
+
+    /* ── Grid ──────────────────────────────────────── */
+    .grid-wrapper {
+      overflow-x: auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    table { border-collapse: collapse; width: 100%; }
+
+    th, td {
+      padding: 0.7rem 1rem;
+      text-align: center;
+      border-bottom: 1px solid #f0f0f0;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f5f8ff;
+      font-weight: 600;
+      color: #555;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td:first-child, th:first-child {
+      text-align: left;
+      padding-left: 1.5rem;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .my-row td { background: #fafbff; }
+
+    /* ── Cells ─────────────────────────────────────── */
+    .cell {
+      width: 44px;
+      height: 34px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      background: #f3f4f6;
+      color: #aaa;
+      user-select: none;
+      transition: transform 0.1s, background 0.15s;
+    }
+
+    .cell.clickable { cursor: pointer; }
+    .cell.clickable:hover { transform: scale(1.12); }
+
+    .cell.green { background: #dcfce7; color: #16a34a; }
+    .cell.red   { background: #fee2e2; color: #dc2626; }
+
+    /* ── Summary row ───────────────────────────────── */
+    .summary-row td {
+      font-size: 0.8rem;
+      color: #888;
+      padding-top: 0.4rem;
+      padding-bottom: 0.6rem;
+      border-top: 2px solid #f0f0f0;
+      border-bottom: none;
+    }
+
+    /* ── Footer ────────────────────────────────────── */
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .legend {
+      display: flex;
+      gap: 1.2rem;
+      font-size: 0.82rem;
+      color: #666;
+      align-items: center;
+    }
+    .legend span { display: flex; align-items: center; gap: 0.35rem; }
+    .legend .cell { width: 26px; height: 22px; font-size: 0.8rem; border-radius: 5px; }
+
+    .status { font-size: 0.78rem; color: #aaa; }
+
+    .empty-state {
+      padding: 3rem;
+      text-align: center;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Login ────────────────────────────────────── -->
+<div id="login-screen">
+  <h1>Termin-O-Mat</h1>
+  <p>Bitte Kennwort eingeben</p>
+  <input type="password" id="pw-input" placeholder="Kennwort"
+         onkeydown="if(event.key==='Enter') login()">
+  <button onclick="login()">Weiter</button>
+  <div id="login-error">Falsches Kennwort</div>
+</div>
+
+<!-- ── Main ─────────────────────────────────────── -->
+<div id="main-screen" style="display:none">
+  <h1>Termin-O-Mat</h1>
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <label>Dein Name</label>
+      <input type="text" id="name-input" placeholder="Name eingeben"
+             oninput="onNameInput()">
+    </div>
+    <div class="ctrl-group">
+      <label>Neuen Termin vorschlagen</label>
+      <input type="date" id="date-input">
+    </div>
+    <button onclick="addDate()">Termin hinzufügen</button>
+  </div>
+
+  <div class="grid-wrapper" id="grid-wrapper">
+    <div class="empty-state">Noch keine Terminvorschläge.</div>
+  </div>
+
+  <div class="footer">
+    <div class="legend">
+      <span>Legende:</span>
+      <span><span class="cell green">✓</span> Kann ich</span>
+      <span><span class="cell red">✗</span> Kann nicht</span>
+      <span><span class="cell">–</span> Keine Angabe</span>
+    </div>
+    <div class="status" id="status">Lade…</div>
+  </div>
+</div>
+
+<script>
+  // ── Konfiguration ──────────────────────────────────────────────────────────
+  const DB_URL  = "https://termin-o-mat-default-rtdb.europe-west1.firebasedatabase.app";
+  const PATH    = "event";
+  const PASSWORD = "WIRO-Treffen26"; // ← Kennwort hier ändern
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let state = { termine: [], stimmen: {} };
+  let myName = localStorage.getItem("terminomat-name") || "";
+
+  // ── Login ──────────────────────────────────────────────────────────────────
+  function login() {
+    if (document.getElementById("pw-input").value !== PASSWORD) {
+      document.getElementById("login-error").style.display = "block";
+      return;
+    }
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("main-screen").style.display  = "block";
+    document.getElementById("name-input").value = myName;
+    fetchState();
+    setInterval(fetchState, 5000);
+  }
+
+  // ── Name ───────────────────────────────────────────────────────────────────
+  function onNameInput() {
+    myName = document.getElementById("name-input").value.trim();
+    localStorage.setItem("terminomat-name", myName);
+    renderGrid();
+  }
+
+  // ── Firebase REST ──────────────────────────────────────────────────────────
+  async function fetchState() {
+    try {
+      const res  = await fetch(`${DB_URL}/${PATH}.json`);
+      const data = await res.json();
+      state = {
+        termine: data?.termine || [],
+        stimmen: data?.stimmen || {}
+      };
+      renderGrid();
+      document.getElementById("status").textContent =
+        "Aktualisiert: " + new Date().toLocaleTimeString("de-DE");
+    } catch {
+      document.getElementById("status").textContent = "Verbindungsfehler";
+    }
+  }
+
+  async function addDate() {
+    const input   = document.getElementById("date-input");
+    const dateStr = input.value;
+    if (!dateStr || state.termine.includes(dateStr)) return;
+
+    const termine = [...state.termine, dateStr].sort();
+    await fetch(`${DB_URL}/${PATH}/termine.json`, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(termine)
+    });
+    input.value = "";
+    fetchState();
+  }
+
+  async function toggleVote(date) {
+    if (!myName) {
+      document.getElementById("name-input").focus();
+      document.getElementById("name-input").style.borderColor = "#f59e0b";
+      setTimeout(() => document.getElementById("name-input").style.borderColor = "", 1500);
+      return;
+    }
+    const votes   = state.stimmen[myName] || {};
+    const current = votes[date] || "neutral";
+    const next    = current === "neutral" ? "green"
+                  : current === "green"   ? "red"
+                  :                         "neutral";
+
+    if (!state.stimmen[myName]) state.stimmen[myName] = {};
+    state.stimmen[myName][date] = next;
+    renderGrid(); // optimistic
+
+    // Firebase key: encode date (hyphens are fine, but encode name)
+    const safeName = encodeURIComponent(myName);
+    const safeDate = encodeURIComponent(date);
+    await fetch(`${DB_URL}/${PATH}/stimmen/${safeName}/${safeDate}.json`, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(next)
+    });
+  }
+
+  // ── Rendering ──────────────────────────────────────────────────────────────
+  function formatDate(str) {
+    // parse as local date (avoid UTC shift)
+    const [y, m, d] = str.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("de-DE", {
+      weekday: "short", day: "numeric", month: "short", year: "numeric"
+    });
+  }
+
+  function cellContent(status) {
+    if (status === "green") return "✓";
+    if (status === "red")   return "✗";
+    return "–";
+  }
+
+  function renderGrid() {
+    const { termine, stimmen } = state;
+    const wrapper = document.getElementById("grid-wrapper");
+
+    if (termine.length === 0) {
+      wrapper.innerHTML = '<div class="empty-state">Noch keine Terminvorschläge. Oben einen Termin hinzufügen!</div>';
+      return;
+    }
+
+    // Build list of names (existing + current user if not yet present)
+    const names = Object.keys(stimmen);
+    if (myName && !names.includes(myName)) names.push(myName);
+
+    // Header row
+    let html = "<table><thead><tr><th>Name</th>"
+      + termine.map(d => `<th>${formatDate(d)}</th>`).join("")
+      + "</tr></thead><tbody>";
+
+    // Data rows
+    for (const name of names) {
+      const isMe = name === myName;
+      const votes = stimmen[name] || {};
+      html += `<tr class="${isMe ? "my-row" : ""}">`;
+      html += `<td>${isMe ? `<strong>${name} (du)</strong>` : name}</td>`;
+      for (const date of termine) {
+        const status = votes[date] || "neutral";
+        const cls    = ["cell", status !== "neutral" ? status : "", isMe ? "clickable" : ""].filter(Boolean).join(" ");
+        const click  = isMe ? `onclick="toggleVote('${date}')"` : "";
+        html += `<td><div class="${cls}" ${click}>${cellContent(status)}</div></td>`;
+      }
+      html += "</tr>";
+    }
+
+    // Summary row: count greens per date
+    if (names.length > 0) {
+      html += '<tr class="summary-row"><td>✓ Zusagen</td>';
+      for (const date of termine) {
+        const count = names.filter(n => (stimmen[n] || {})[date] === "green").length;
+        html += `<td><strong>${count}</strong> / ${names.length}</td>`;
+      }
+      html += "</tr>";
+    }
+
+    html += "</tbody></table>";
+    wrapper.innerHTML = html;
+  }
+</script>
+</body>
+</html>
