@@ -173,6 +173,12 @@
       border-bottom: none;
     }
 
+    .summary-row td.best {
+      background: #fef9c3;
+      color: #92400e;
+      font-weight: 700;
+    }
+
     /* ── Footer ────────────────────────────────────── */
     .footer {
       display: flex;
@@ -241,6 +247,7 @@
       <span><span class="cell green">✓</span> Kann ich</span>
       <span><span class="cell red">✗</span> Kann nicht</span>
       <span><span class="cell">–</span> Keine Angabe</span>
+      <span>★ Beste Option</span>
     </div>
     <div class="status" id="status">Lade…</div>
   </div>
@@ -395,10 +402,15 @@
 
     // Summary row: count greens per date
     if (names.length > 0) {
+      const counts = termine.map(date =>
+        names.filter(n => (stimmen[n] || {})[date] === "green").length
+      );
+      const maxCount = Math.max(...counts);
+
       html += '<tr class="summary-row"><td>✓ Zusagen</td>';
-      for (const date of termine) {
-        const count = names.filter(n => (stimmen[n] || {})[date] === "green").length;
-        html += `<td><strong>${count}</strong> / ${names.length}</td>`;
+      for (let i = 0; i < termine.length; i++) {
+        const isBest = maxCount > 0 && counts[i] === maxCount;
+        html += `<td${isBest ? ' class="best"' : ''}>${isBest ? "★ " : ""}<strong>${counts[i]}</strong> / ${names.length}</td>`;
       }
       html += "</tr>";
     }
