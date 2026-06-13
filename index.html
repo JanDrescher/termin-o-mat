@@ -381,7 +381,7 @@
     const weekday = date.toLocaleDateString("de-DE", { weekday: "short" });
     const day   = String(d).padStart(2, "0");
     const month = String(m).padStart(2, "0");
-    return `${weekday}<br>${day}/${month}`;
+    return `${weekday}<br>${day}.${month}.`;
   }
 
   function cellContent(status) {
