@@ -213,6 +213,11 @@
 <!-- ── Login ────────────────────────────────────── -->
 <div id="login-screen">
   <h1>Termin-O-Mat</h1>
+  <p style="max-width:320px;text-align:center;line-height:1.6;color:#555">
+    Hallo liebe Kollegen!<br>
+    Es werden keine Zugangsdaten benötigt, nur einmalig das Kennwort aus der WhatsApp-Gruppe.
+    Viele Grüße und bis zum Treffen, Jan D.
+  </p>
   <p>Bitte Kennwort eingeben</p>
   <input type="text" id="pw-input" placeholder="Kennwort"
          onkeydown="if(event.key==='Enter') login()">
@@ -237,6 +242,13 @@
     <button onclick="addDate()">Termin hinzufügen</button>
   </div>
 
+  <p style="font-size:0.82rem;color:#888;margin-bottom:1.25rem;line-height:1.6">
+    Nur Namen eingeben, kein Button nötig. Name wird je Gerät gespeichert.
+    Terminvorschlag falls gewünscht mittels Button in die Liste.
+  </p>
+
+  <div id="date-hint" style="display:none;font-size:0.85rem;color:#d97706;margin-bottom:0.75rem"></div>
+
   <div class="grid-wrapper" id="grid-wrapper">
     <div class="empty-state">Noch keine Terminvorschläge.</div>
   </div>
@@ -247,7 +259,7 @@
       <span><span class="cell green">✓</span> Kann ich</span>
       <span><span class="cell red">✗</span> Kann nicht</span>
       <span><span class="cell">–</span> Keine Angabe</span>
-      <span>★ Beste Option</span>
+      <span>★ Meiste Zusagen</span>
     </div>
     <div class="status" id="status">Lade…</div>
   </div>
@@ -309,10 +321,21 @@
     }
   }
 
+  function showDateHint(msg) {
+    const el = document.getElementById("date-hint");
+    el.textContent = msg;
+    el.style.display = "block";
+    setTimeout(() => el.style.display = "none", 3000);
+  }
+
   async function addDate() {
     const input   = document.getElementById("date-input");
     const dateStr = input.value;
-    if (!dateStr || state.termine.includes(dateStr)) return;
+    if (!dateStr) return;
+    if (state.termine.includes(dateStr)) {
+      showDateHint("Dieser Termin ist bereits in der Liste.");
+      return;
+    }
 
     const termine = [...state.termine, dateStr].sort();
     await fetch(`${DB_URL}/${PATH}/termine.json`, {
