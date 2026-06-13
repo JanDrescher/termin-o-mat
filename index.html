@@ -370,8 +370,8 @@
     }
 
     // Build list of names (existing + current user if not yet present)
-    const names = Object.keys(stimmen);
-    if (myName && !names.includes(myName)) names.push(myName);
+    const others = Object.keys(stimmen).filter(n => n !== myName).sort();
+    const names  = myName ? [myName, ...others] : others;
 
     // Header row
     let html = '<table><thead><tr><th>Name</th>'
