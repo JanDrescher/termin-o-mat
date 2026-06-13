@@ -208,7 +208,7 @@
 <div id="login-screen">
   <h1>Termin-O-Mat</h1>
   <p>Bitte Kennwort eingeben</p>
-  <input type="password" id="pw-input" placeholder="Kennwort"
+  <input type="text" id="pw-input" placeholder="Kennwort"
          onkeydown="if(event.key==='Enter') login()">
   <button onclick="login()">Weiter</button>
   <div id="login-error">Falsches Kennwort</div>
@@ -257,16 +257,25 @@
   let myName = localStorage.getItem("terminomat-name") || "";
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  function login() {
-    if (document.getElementById("pw-input").value !== PASSWORD) {
-      document.getElementById("login-error").style.display = "block";
-      return;
-    }
+  function enterApp() {
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("main-screen").style.display  = "block";
     document.getElementById("name-input").value = myName;
     fetchState();
     setInterval(fetchState, 5000);
+  }
+
+  function login() {
+    if (document.getElementById("pw-input").value !== PASSWORD) {
+      document.getElementById("login-error").style.display = "block";
+      return;
+    }
+    localStorage.setItem("terminomat-auth", "1");
+    enterApp();
+  }
+
+  if (localStorage.getItem("terminomat-auth") === "1") {
+    enterApp();
   }
 
   // ── Name ───────────────────────────────────────────────────────────────────
@@ -337,11 +346,12 @@
 
   // ── Rendering ──────────────────────────────────────────────────────────────
   function formatDate(str) {
-    // parse as local date (avoid UTC shift)
     const [y, m, d] = str.split("-").map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString("de-DE", {
-      weekday: "short", day: "numeric", month: "short", year: "numeric"
-    });
+    const date = new Date(y, m - 1, d);
+    const weekday = date.toLocaleDateString("de-DE", { weekday: "short" });
+    const day   = String(d).padStart(2, "0");
+    const month = String(m).padStart(2, "0");
+    return `${weekday}<br>${day}/${month}`;
   }
 
   function cellContent(status) {
@@ -364,8 +374,8 @@
     if (myName && !names.includes(myName)) names.push(myName);
 
     // Header row
-    let html = "<table><thead><tr><th>Name</th>"
-      + termine.map(d => `<th>${formatDate(d)}</th>`).join("")
+    let html = '<table><thead><tr><th>Name</th>'
+      + termine.map(d => `<th style="line-height:1.4">${formatDate(d)}</th>`).join("")
       + "</tr></thead><tbody>";
 
     // Data rows
