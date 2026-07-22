@@ -222,6 +222,8 @@
 <div id="main-screen" style="display:none">
   <h1>Termin-O-Mat</h1>
 
+  <div id="welcome-box"></div>
+
   <div class="controls">
     <div class="ctrl-group">
       <label>Dein Name</label>
@@ -278,8 +280,9 @@
   const NAME_KEY   = eventId ? `terminomat-name-${eventId}` : null;
 
   // ── State ──────────────────────────────────────────────────────────────────
-  let state = { termine: [], stimmen: {} };
+  let state = { termine: [], stimmen: {}, welcomeText: "", welcomeAuthor: "" };
   let myName = eventId ? (localStorage.getItem(NAME_KEY) || "") : "";
+  let editingWelcome = false;
 
   // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
@@ -303,7 +306,12 @@
       return;
     }
 
-    state = { termine: data.termine || [], stimmen: data.stimmen || {} };
+    state = {
+      termine:       data.termine || [],
+      stimmen:       data.stimmen || {},
+      welcomeText:   data.welcomeText || "",
+      welcomeAuthor: data.welcomeAuthor || ""
+    };
     enterApp();
   }
 
@@ -314,6 +322,7 @@
     document.getElementById("name-input").value = myName;
     document.getElementById("share-link").value = location.href;
     renderGrid();
+    renderWelcome();
     fetchState();
     setInterval(fetchState, 5000);
   }
@@ -345,6 +354,65 @@
     navigator.clipboard?.writeText(input.value);
   }
 
+  // ── Begrüßungstext ─────────────────────────────────────────────────────────
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function isEventEmpty() {
+    return state.termine.length === 0 && Object.keys(state.stimmen).length === 0;
+  }
+
+  function renderWelcome() {
+    // Nicht neu rendern, während der Nutzer gerade im Textfeld tippt -
+    // sonst löscht das 5-Sekunden-Polling den Entwurf.
+    if (document.activeElement?.id === "welcome-input") return;
+
+    const box = document.getElementById("welcome-box");
+    const isAuthor = state.welcomeAuthor && myName.trim() === state.welcomeAuthor;
+
+    if (isEventEmpty() || (isAuthor && editingWelcome)) {
+      box.innerHTML = `
+        <textarea id="welcome-input" placeholder="Begrüßungstext für die Teilnehmer (optional)"
+          style="width:100%;min-height:70px;padding:0.6rem 0.8rem;border:2px solid #ddd;
+                 border-radius:8px;font:inherit;margin-bottom:1.25rem;resize:vertical"
+        >${escapeHtml(state.welcomeText)}</textarea>
+        <button onclick="saveWelcome()" style="margin-top:-0.75rem;margin-bottom:1.25rem">Speichern</button>
+      `;
+      return;
+    }
+
+    if (state.welcomeText) {
+      box.innerHTML = `
+        <p style="color:#555;line-height:1.6;margin-bottom:0.4rem;white-space:pre-wrap">${escapeHtml(state.welcomeText)}</p>
+        ${isAuthor ? `<button onclick="editingWelcome=true;renderWelcome()" style="padding:0.3rem 0.8rem;font-size:0.78rem;margin-bottom:1.25rem">Text bearbeiten</button>` : ""}
+      `;
+      return;
+    }
+
+    box.innerHTML = "";
+  }
+
+  async function saveWelcome() {
+    const text   = document.getElementById("welcome-input").value.trim();
+    const author = state.welcomeAuthor || myName.trim();
+    if (!author) {
+      alert("Bitte zuerst deinen Namen eingeben.");
+      return;
+    }
+    state.welcomeText   = text;
+    state.welcomeAuthor = author;
+    editingWelcome = false;
+    renderWelcome();
+    await fetch(`${DB_URL}/${EVENT_PATH}.json`, {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ welcomeText: text, welcomeAuthor: author })
+    });
+  }
+
   init();
 
   // ── Name ───────────────────────────────────────────────────────────────────
@@ -352,6 +420,7 @@
     myName = document.getElementById("name-input").value.trim();
     localStorage.setItem(NAME_KEY, myName);
     renderGrid();
+    renderWelcome();
   }
 
   // ── Firebase REST ──────────────────────────────────────────────────────────
@@ -360,10 +429,13 @@
       const res  = await fetch(`${DB_URL}/${EVENT_PATH}.json`);
       const data = await res.json();
       state = {
-        termine: data?.termine || [],
-        stimmen: data?.stimmen || {}
+        termine:       data?.termine || [],
+        stimmen:       data?.stimmen || {},
+        welcomeText:   data?.welcomeText || "",
+        welcomeAuthor: data?.welcomeAuthor || ""
       };
       renderGrid();
+      renderWelcome();
       document.getElementById("status").textContent =
         "Aktualisiert: " + new Date().toLocaleTimeString("de-DE");
     } catch {
