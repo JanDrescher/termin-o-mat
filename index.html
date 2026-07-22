@@ -207,7 +207,7 @@
     Einfache Terminfindung ohne Anmeldung. Event erstellen, Link an die
     Gruppe schicken – fertig.
   </p>
-  <button onclick="createEvent()">Neues Event erstellen</button>
+  <button onclick="createNewEvent()">Neues Event erstellen</button>
   <div id="landing-error">Verbindungsfehler</div>
 </div>
 
@@ -215,7 +215,7 @@
 <div id="notfound-screen" style="display:none">
   <h1>Termin-O-Mat</h1>
   <p>Dieses Event existiert nicht (mehr).</p>
-  <button onclick="createEvent()">Neues Event erstellen</button>
+  <button onclick="createNewEvent()">Neues Event erstellen</button>
 </div>
 
 <!-- ── Main ─────────────────────────────────────── -->
@@ -263,7 +263,7 @@
            style="padding:0.4rem 0.6rem;border:1px solid #ddd;border-radius:6px;font-size:0.8rem;width:260px">
     <button onclick="copyShareLink()" style="padding:0.4rem 0.9rem;font-size:0.82rem">Kopieren</button>
     <span>·</span>
-    <button onclick="createEvent()" style="padding:0.4rem 0.9rem;font-size:0.82rem">Neues Event erstellen</button>
+    <button onclick="createNewEvent()" style="padding:0.4rem 0.9rem;font-size:0.82rem">Neues Event erstellen</button>
   </div>
 </div>
 
@@ -323,7 +323,7 @@
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  async function createEvent() {
+  async function createNewEvent() {
     try {
       const id = makeId();
       // createdAt hält den Knoten am Leben – Firebase entfernt Objekte,
