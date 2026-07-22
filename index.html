@@ -14,8 +14,8 @@
       min-height: 100vh;
     }
 
-    /* ── Login ─────────────────────────────────────── */
-    #login-screen, #notfound-screen {
+    /* ── Start ─────────────────────────────────────── */
+    #landing-screen, #notfound-screen {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -24,20 +24,10 @@
       gap: 1rem;
     }
 
-    #login-screen h1, #notfound-screen h1 { font-size: 2rem; color: #2563eb; }
-    #login-screen p, #notfound-screen p  { color: #666; }
+    #landing-screen h1, #notfound-screen h1 { font-size: 2rem; color: #2563eb; }
+    #landing-screen p, #notfound-screen p  { color: #666; }
 
-    #login-screen input {
-      padding: 0.75rem 1rem;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 1rem;
-      width: 280px;
-      text-align: center;
-    }
-    #login-screen input:focus { outline: none; border-color: #2563eb; }
-
-    #login-screen button {
+    #landing-screen button, #notfound-screen button {
       padding: 0.75rem 2rem;
       background: #2563eb;
       color: white;
@@ -46,9 +36,9 @@
       font-size: 1rem;
       cursor: pointer;
     }
-    #login-screen button:hover { background: #1d4ed8; }
+    #landing-screen button:hover, #notfound-screen button:hover { background: #1d4ed8; }
 
-    #login-error { color: #dc2626; font-size: 0.9rem; display: none; }
+    #landing-error { color: #dc2626; font-size: 0.9rem; display: none; }
 
     /* ── Main ──────────────────────────────────────── */
     #main-screen {
@@ -210,31 +200,22 @@
 </head>
 <body>
 
-<!-- ── Login ────────────────────────────────────── -->
-<div id="login-screen" style="display:none">
+<!-- ── Start ────────────────────────────────────── -->
+<div id="landing-screen" style="display:none">
   <h1>Termin-O-Mat</h1>
-  <p>Bitte Kennwort eingeben</p>
-  <input type="text" id="pw-input" placeholder="Kennwort"
-         onkeydown="if(event.key==='Enter') login()">
-  <button onclick="login()">Weiter</button>
-  <div id="login-error">Falsches Kennwort</div>
-  <p style="max-width:420px;text-align:center;line-height:1.6;color:#555;margin-top:0.5rem">
-    Hallo liebe Kollegen!<br>
-    Es werden keine Zugangsdaten benötigt, nur einmalig das Kennwort aus der WhatsApp-Gruppe.
-    Viele Grüße und bis zum Treffen, Jan D.
+  <p style="max-width:420px;text-align:center;line-height:1.6">
+    Einfache Terminfindung ohne Anmeldung. Event erstellen, Link an die
+    Gruppe schicken – fertig.
   </p>
-  <p style="font-size:0.82rem;margin-top:1rem">
-    <a href="#" onclick="createEvent();return false;">Eigenes neues Event erstellen</a>
-  </p>
+  <button onclick="createEvent()">Neues Event erstellen</button>
+  <div id="landing-error">Verbindungsfehler</div>
 </div>
 
 <!-- ── Event nicht gefunden ─────────────────────── -->
 <div id="notfound-screen" style="display:none">
   <h1>Termin-O-Mat</h1>
   <p>Dieses Event existiert nicht (mehr).</p>
-  <p style="font-size:0.82rem">
-    <a href="#" onclick="createEvent();return false;">Neues Event erstellen</a>
-  </p>
+  <button onclick="createEvent()">Neues Event erstellen</button>
 </div>
 
 <!-- ── Main ─────────────────────────────────────── -->
@@ -282,7 +263,7 @@
            style="padding:0.4rem 0.6rem;border:1px solid #ddd;border-radius:6px;font-size:0.8rem;width:260px">
     <button onclick="copyShareLink()" style="padding:0.4rem 0.9rem;font-size:0.82rem">Kopieren</button>
     <span>·</span>
-    <a href="#" onclick="createEvent();return false;">Neues Event erstellen</a>
+    <button onclick="createEvent()" style="padding:0.4rem 0.9rem;font-size:0.82rem">Neues Event erstellen</button>
   </div>
 </div>
 
@@ -290,28 +271,30 @@
   // ── Konfiguration ──────────────────────────────────────────────────────────
   const DB_URL  = "https://termin-o-mat-default-rtdb.europe-west1.firebasedatabase.app";
 
-  // Jedes Event lebt unter events/<id>. Ohne ?e=... in der URL wird das
-  // ursprüngliche (passwortgeschützte) Kollegen-Event geladen.
-  const eventId   = new URLSearchParams(location.search).get("e") || "wiro";
-  const EVENT_PATH = `events/${eventId}`;
-  const AUTH_KEY  = `terminomat-auth-${eventId}`;
-  const NAME_KEY  = `terminomat-name-${eventId}`;
+  // Jedes Event lebt unter events/<id>, referenziert per ?e=<id> in der URL.
+  // Ohne diesen Parameter gibt es kein Event – nur die Möglichkeit, eins anzulegen.
+  const eventId    = new URLSearchParams(location.search).get("e") || null;
+  const EVENT_PATH = eventId ? `events/${eventId}` : null;
+  const NAME_KEY   = eventId ? `terminomat-name-${eventId}` : null;
 
   // ── State ──────────────────────────────────────────────────────────────────
   let state = { termine: [], stimmen: {} };
-  let eventPassword = "";
-  let myName = localStorage.getItem(NAME_KEY) || "";
+  let myName = eventId ? (localStorage.getItem(NAME_KEY) || "") : "";
 
-  // ── Init / Login ───────────────────────────────────────────────────────────
+  // ── Init ───────────────────────────────────────────────────────────────────
   async function init() {
+    if (!eventId) {
+      document.getElementById("landing-screen").style.display = "flex";
+      return;
+    }
+
     let data = null;
     try {
       const res = await fetch(`${DB_URL}/${EVENT_PATH}.json`);
       data = await res.json();
     } catch {
-      document.getElementById("login-screen").style.display = "flex";
-      document.getElementById("login-error").textContent = "Verbindungsfehler";
-      document.getElementById("login-error").style.display = "block";
+      document.getElementById("landing-screen").style.display = "flex";
+      document.getElementById("landing-error").style.display = "block";
       return;
     }
 
@@ -321,18 +304,11 @@
     }
 
     state = { termine: data.termine || [], stimmen: data.stimmen || {} };
-    eventPassword = data.password || "";
-
-    const authed = localStorage.getItem(AUTH_KEY) === "1";
-    if (!eventPassword || authed) {
-      enterApp();
-    } else {
-      document.getElementById("login-screen").style.display = "flex";
-    }
+    enterApp();
   }
 
   function enterApp() {
-    document.getElementById("login-screen").style.display    = "none";
+    document.getElementById("landing-screen").style.display  = "none";
     document.getElementById("notfound-screen").style.display = "none";
     document.getElementById("main-screen").style.display     = "block";
     document.getElementById("name-input").value = myName;
@@ -340,15 +316,6 @@
     renderGrid();
     fetchState();
     setInterval(fetchState, 5000);
-  }
-
-  function login() {
-    if (document.getElementById("pw-input").value !== eventPassword) {
-      document.getElementById("login-error").style.display = "block";
-      return;
-    }
-    localStorage.setItem(AUTH_KEY, "1");
-    enterApp();
   }
 
   function makeId() {
