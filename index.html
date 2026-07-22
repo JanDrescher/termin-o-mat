@@ -351,16 +351,25 @@
     enterApp();
   }
 
+  function makeId() {
+    if (window.crypto?.randomUUID) return crypto.randomUUID();
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
   async function createEvent() {
-    const id = crypto.randomUUID();
-    // createdAt hält den Knoten am Leben – Firebase entfernt Objekte,
-    // die nur aus leeren Arrays/Objekten bestehen (termine/stimmen).
-    await fetch(`${DB_URL}/events/${id}.json`, {
-      method:  "PUT",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ termine: [], stimmen: {}, createdAt: Date.now() })
-    });
-    location.href = `${location.pathname}?e=${id}`;
+    try {
+      const id = makeId();
+      // createdAt hält den Knoten am Leben – Firebase entfernt Objekte,
+      // die nur aus leeren Arrays/Objekten bestehen (termine/stimmen).
+      await fetch(`${DB_URL}/events/${id}.json`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ termine: [], stimmen: {}, createdAt: Date.now() })
+      });
+      location.href = `${location.pathname}?e=${id}`;
+    } catch (e) {
+      alert("Event konnte nicht erstellt werden: " + e.message);
+    }
   }
 
   function copyShareLink() {
