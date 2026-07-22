@@ -15,7 +15,7 @@
     }
 
     /* ── Login ─────────────────────────────────────── */
-    #login-screen {
+    #login-screen, #notfound-screen {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -24,8 +24,8 @@
       gap: 1rem;
     }
 
-    #login-screen h1 { font-size: 2rem; color: #2563eb; }
-    #login-screen p  { color: #666; }
+    #login-screen h1, #notfound-screen h1 { font-size: 2rem; color: #2563eb; }
+    #login-screen p, #notfound-screen p  { color: #666; }
 
     #login-screen input {
       padding: 0.75rem 1rem;
@@ -211,7 +211,7 @@
 <body>
 
 <!-- ── Login ────────────────────────────────────── -->
-<div id="login-screen">
+<div id="login-screen" style="display:none">
   <h1>Termin-O-Mat</h1>
   <p>Bitte Kennwort eingeben</p>
   <input type="text" id="pw-input" placeholder="Kennwort"
@@ -222,6 +222,18 @@
     Hallo liebe Kollegen!<br>
     Es werden keine Zugangsdaten benötigt, nur einmalig das Kennwort aus der WhatsApp-Gruppe.
     Viele Grüße und bis zum Treffen, Jan D.
+  </p>
+  <p style="font-size:0.82rem;margin-top:1rem">
+    <a href="#" onclick="createEvent();return false;">Eigenes neues Event erstellen</a>
+  </p>
+</div>
+
+<!-- ── Event nicht gefunden ─────────────────────── -->
+<div id="notfound-screen" style="display:none">
+  <h1>Termin-O-Mat</h1>
+  <p>Dieses Event existiert nicht (mehr).</p>
+  <p style="font-size:0.82rem">
+    <a href="#" onclick="createEvent();return false;">Neues Event erstellen</a>
   </p>
 </div>
 
@@ -263,51 +275,113 @@
     </div>
     <div class="status" id="status">Lade…</div>
   </div>
+
+  <div id="share-box" style="margin-top:1rem;font-size:0.82rem;color:#666;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+    <span>Link zum Teilen:</span>
+    <input id="share-link" readonly onclick="this.select()"
+           style="padding:0.4rem 0.6rem;border:1px solid #ddd;border-radius:6px;font-size:0.8rem;width:260px">
+    <button onclick="copyShareLink()" style="padding:0.4rem 0.9rem;font-size:0.82rem">Kopieren</button>
+    <span>·</span>
+    <a href="#" onclick="createEvent();return false;">Neues Event erstellen</a>
+  </div>
 </div>
 
 <script>
   // ── Konfiguration ──────────────────────────────────────────────────────────
   const DB_URL  = "https://termin-o-mat-default-rtdb.europe-west1.firebasedatabase.app";
-  const PATH    = "event";
-  const PASSWORD = "WIRO-Treffen26"; // ← Kennwort hier ändern
+
+  // Jedes Event lebt unter events/<id>. Ohne ?e=... in der URL wird das
+  // ursprüngliche (passwortgeschützte) Kollegen-Event geladen.
+  const eventId   = new URLSearchParams(location.search).get("e") || "wiro";
+  const EVENT_PATH = `events/${eventId}`;
+  const AUTH_KEY  = `terminomat-auth-${eventId}`;
+  const NAME_KEY  = `terminomat-name-${eventId}`;
 
   // ── State ──────────────────────────────────────────────────────────────────
   let state = { termine: [], stimmen: {} };
-  let myName = localStorage.getItem("terminomat-name") || "";
+  let eventPassword = "";
+  let myName = localStorage.getItem(NAME_KEY) || "";
 
-  // ── Login ──────────────────────────────────────────────────────────────────
+  // ── Init / Login ───────────────────────────────────────────────────────────
+  async function init() {
+    let data = null;
+    try {
+      const res = await fetch(`${DB_URL}/${EVENT_PATH}.json`);
+      data = await res.json();
+    } catch {
+      document.getElementById("login-screen").style.display = "flex";
+      document.getElementById("login-error").textContent = "Verbindungsfehler";
+      document.getElementById("login-error").style.display = "block";
+      return;
+    }
+
+    if (data === null) {
+      document.getElementById("notfound-screen").style.display = "flex";
+      return;
+    }
+
+    state = { termine: data.termine || [], stimmen: data.stimmen || {} };
+    eventPassword = data.password || "";
+
+    const authed = localStorage.getItem(AUTH_KEY) === "1";
+    if (!eventPassword || authed) {
+      enterApp();
+    } else {
+      document.getElementById("login-screen").style.display = "flex";
+    }
+  }
+
   function enterApp() {
-    document.getElementById("login-screen").style.display = "none";
-    document.getElementById("main-screen").style.display  = "block";
+    document.getElementById("login-screen").style.display    = "none";
+    document.getElementById("notfound-screen").style.display = "none";
+    document.getElementById("main-screen").style.display     = "block";
     document.getElementById("name-input").value = myName;
+    document.getElementById("share-link").value = location.href;
+    renderGrid();
     fetchState();
     setInterval(fetchState, 5000);
   }
 
   function login() {
-    if (document.getElementById("pw-input").value !== PASSWORD) {
+    if (document.getElementById("pw-input").value !== eventPassword) {
       document.getElementById("login-error").style.display = "block";
       return;
     }
-    localStorage.setItem("terminomat-auth", "1");
+    localStorage.setItem(AUTH_KEY, "1");
     enterApp();
   }
 
-  if (localStorage.getItem("terminomat-auth") === "1") {
-    enterApp();
+  async function createEvent() {
+    const id = crypto.randomUUID();
+    // createdAt hält den Knoten am Leben – Firebase entfernt Objekte,
+    // die nur aus leeren Arrays/Objekten bestehen (termine/stimmen).
+    await fetch(`${DB_URL}/events/${id}.json`, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ termine: [], stimmen: {}, createdAt: Date.now() })
+    });
+    location.href = `${location.pathname}?e=${id}`;
   }
+
+  function copyShareLink() {
+    const input = document.getElementById("share-link");
+    input.select();
+    navigator.clipboard?.writeText(input.value);
+  }
+
+  init();
 
   // ── Name ───────────────────────────────────────────────────────────────────
   function onNameInput() {
     myName = document.getElementById("name-input").value.trim();
-    localStorage.setItem("terminomat-name", myName);
+    localStorage.setItem(NAME_KEY, myName);
     renderGrid();
   }
 
   // ── Firebase REST ──────────────────────────────────────────────────────────
   async function fetchState() {
     try {
-      const res  = await fetch(`${DB_URL}/${PATH}.json`);
+      const res  = await fetch(`${DB_URL}/${EVENT_PATH}.json`);
       const data = await res.json();
       state = {
         termine: data?.termine || [],
@@ -338,7 +412,7 @@
     }
 
     const termine = [...state.termine, dateStr].sort();
-    await fetch(`${DB_URL}/${PATH}/termine.json`, {
+    await fetch(`${DB_URL}/${EVENT_PATH}/termine.json`, {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(termine)
@@ -367,7 +441,7 @@
     // Firebase key: encode date (hyphens are fine, but encode name)
     const safeName = encodeURIComponent(myName);
     const safeDate = encodeURIComponent(date);
-    await fetch(`${DB_URL}/${PATH}/stimmen/${safeName}/${safeDate}.json`, {
+    await fetch(`${DB_URL}/${EVENT_PATH}/stimmen/${safeName}/${safeDate}.json`, {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(next)
